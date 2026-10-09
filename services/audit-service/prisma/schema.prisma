@@ -1,0 +1,26 @@
+// audit_db: dimiliki HANYA oleh audit-service. userId/userName adalah salinan dari auth-service.
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+model AuditLog {
+  id          Int      @id @default(autoincrement())
+  userId      Int?
+  userName    String?  @db.VarChar(120)
+  action      String   @db.VarChar(60)
+  entity      String   @db.VarChar(60)
+  entityId    Int?
+  description String   @db.Text
+  ipAddress   String?  @db.VarChar(64)
+  createdAt   DateTime @default(now())
+
+  @@index([userId])
+  @@index([action])
+  @@index([entity])
+  @@index([createdAt])
+}

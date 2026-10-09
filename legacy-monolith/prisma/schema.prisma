@@ -1,0 +1,335 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  PETUGAS
+  ADMIN
+  SUPERADMIN
+}
+enum RecordStatus {
+  ACTIVE
+  INACTIVE
+}
+enum ReportStatus {
+  DRAFT
+  SUBMITTED
+  VERIFIED
+  IN_PROGRESS
+  RESOLVED
+  CLOSED
+}
+enum Priority {
+  LOW
+  MEDIUM
+  HIGH
+  CRITICAL
+}
+enum ActivityType {
+  LOADING
+  DISCHARGE
+  PENYALURAN
+  STORAGE
+}
+enum Condition {
+  SAFE
+  UNSAFE
+}
+enum TankStatus {
+  LOADING
+  DISCHARGE
+  PENYALURAN
+  AKTIF_IDLE
+  OFF
+}
+enum FindingStatus {
+  OPEN
+  IN_PROGRESS
+  RESOLVED
+  CLOSED
+}
+enum CorrectiveStatus {
+  OPEN
+  IN_PROGRESS
+  COMPLETED
+  OVERDUE
+  CLOSED
+}
+enum EvidenceCategory {
+  LOADING
+  DISCHARGE
+  PENYALURAN
+  STORAGE
+  FINDING
+  CORRECTIVE_ACTION
+  OTHER
+}
+enum NotificationType {
+  REPORT_SUBMITTED
+  REPORT_VERIFIED
+  FINDING_CREATED
+  CORRECTIVE_ACTION_ASSIGNED
+  CORRECTIVE_ACTION_OVERDUE
+  REPORT_RESOLVED
+  SYSTEM
+}
+
+model Depot {
+  id          Int          @id @default(autoincrement())
+  code        String       @unique @db.VarChar(30)
+  name        String       @db.VarChar(150)
+  location    String?      @db.VarChar(255)
+  description String?      @db.Text
+  status      RecordStatus @default(ACTIVE)
+  deletedAt   DateTime?
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+  users       User[]
+  personnel   Personnel[]
+  tanks       Tank[]
+  reports     SafetyReport[]
+}
+
+model User {
+  id            Int            @id @default(autoincrement())
+  name          String         @db.VarChar(120)
+  username      String         @unique @db.VarChar(60)
+  email         String         @unique @db.VarChar(160)
+  passwordHash  String         @db.VarChar(100)
+  role          Role           @default(PETUGAS)
+  depotId       Int?
+  status        RecordStatus   @default(ACTIVE)
+  deletedAt     DateTime?
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+  depot         Depot?         @relation(fields: [depotId], references: [id])
+  reports       SafetyReport[] @relation("ReportCreator")
+  evidences     Evidence[]
+  notifications Notification[]
+  auditLogs     AuditLog[]
+  histories     StatusHistory[]
+  @@index([depotId])
+  @@index([role])
+}
+
+model Personnel {
+  id             Int          @id @default(autoincrement())
+  name           String       @db.VarChar(120)
+  employeeNumber String?      @unique @db.VarChar(40)
+  position       String?      @db.VarChar(100)
+  depotId        Int
+  status         RecordStatus @default(ACTIVE)
+  deletedAt      DateTime?
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+  depot          Depot        @relation(fields: [depotId], references: [id])
+  picReports     SafetyReport[]     @relation("ReportPic")
+  activities     PatrolActivity[]
+  assignments    CorrectiveAction[]
+  @@index([depotId])
+}
+
+model Product {
+  id          Int          @id @default(autoincrement())
+  code        String       @unique @db.VarChar(30)
+  name        String       @db.VarChar(100)
+  description String?      @db.Text
+  status      RecordStatus @default(ACTIVE)
+  deletedAt   DateTime?
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+  tanks       Tank[]
+  activities  PatrolActivity[]
+}
+
+model Tank {
+  id         Int          @id @default(autoincrement())
+  tankNumber String       @db.VarChar(40)
+  depotId    Int
+  productId  Int?
+  capacity   Decimal?     @db.Decimal(14, 2)
+  status     RecordStatus @default(ACTIVE)
+  deletedAt  DateTime?
+  createdAt  DateTime     @default(now())
+  updatedAt  DateTime     @updatedAt
+  depot      Depot        @relation(fields: [depotId], references: [id])
+  product    Product?     @relation(fields: [productId], references: [id])
+  activities ActivityTank[]
+  @@unique([depotId, tankNumber])
+  @@index([productId])
+}
+
+model SafetyReport {
+  id           Int          @id @default(autoincrement())
+  reportNumber String       @unique @db.VarChar(30)
+  depotId      Int
+  createdById  Int
+  picPatrolId  Int?
+  patrolDate   DateTime     @db.Date
+  patrolTime   String       @db.VarChar(5)
+  status       ReportStatus @default(DRAFT)
+  priority     Priority     @default(LOW)
+  submittedAt  DateTime?
+  verifiedAt   DateTime?
+  closedAt     DateTime?
+  deletedAt    DateTime?
+  createdAt    DateTime     @default(now())
+  updatedAt    DateTime     @updatedAt
+  depot        Depot        @relation(fields: [depotId], references: [id])
+  createdBy    User         @relation("ReportCreator", fields: [createdById], references: [id])
+  picPatrol    Personnel?   @relation("ReportPic", fields: [picPatrolId], references: [id])
+  activities   PatrolActivity[]
+  findings     Finding[]
+  evidences    Evidence[]
+  @@index([depotId])
+  @@index([createdById])
+  @@index([status])
+  @@index([priority])
+  @@index([patrolDate])
+  @@index([createdAt])
+}
+
+model PatrolActivity {
+  id           Int          @id @default(autoincrement())
+  reportId     Int
+  activityType ActivityType
+  condition    Condition    @default(SAFE)
+  notes        String?      @db.Text
+  personnelId  Int?
+  productId    Int?
+  jetty1       String?      @db.VarChar(50)
+  jetty2       String?      @db.VarChar(50)
+  startTime    String?      @db.VarChar(5)
+  endTime      String?      @db.VarChar(5)
+  tankStatus   TankStatus?
+  createdAt    DateTime     @default(now())
+  updatedAt    DateTime     @updatedAt
+  report       SafetyReport @relation(fields: [reportId], references: [id], onDelete: Cascade)
+  personnel    Personnel?   @relation(fields: [personnelId], references: [id])
+  product      Product?     @relation(fields: [productId], references: [id])
+  tanks        ActivityTank[]
+  findings     Finding[]
+  @@unique([reportId, activityType])
+  @@index([personnelId])
+  @@index([productId])
+}
+
+model ActivityTank {
+  activityId Int
+  tankId     Int
+  activity   PatrolActivity @relation(fields: [activityId], references: [id], onDelete: Cascade)
+  tank       Tank           @relation(fields: [tankId], references: [id])
+  @@id([activityId, tankId])
+  @@index([tankId])
+}
+
+model Finding {
+  id             Int           @id @default(autoincrement())
+  reportId       Int
+  activityId     Int?
+  title          String        @db.VarChar(200)
+  description    String        @db.Text
+  location       String?       @db.VarChar(200)
+  priority       Priority      @default(MEDIUM)
+  status         FindingStatus @default(OPEN)
+  recommendation String?       @db.Text
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+  report         SafetyReport  @relation(fields: [reportId], references: [id], onDelete: Cascade)
+  activity       PatrolActivity? @relation(fields: [activityId], references: [id], onDelete: SetNull)
+  evidences      Evidence[]
+  correctiveActions CorrectiveAction[]
+  @@index([reportId])
+  @@index([status])
+  @@index([priority])
+}
+
+model CorrectiveAction {
+  id           Int              @id @default(autoincrement())
+  findingId    Int
+  description  String           @db.Text
+  assignedToId Int
+  targetDate   DateTime         @db.Date
+  status       CorrectiveStatus @default(OPEN)
+  notes        String?          @db.Text
+  completedAt  DateTime?
+  createdAt    DateTime         @default(now())
+  updatedAt    DateTime         @updatedAt
+  finding      Finding          @relation(fields: [findingId], references: [id], onDelete: Cascade)
+  assignedTo   Personnel        @relation(fields: [assignedToId], references: [id])
+  evidences    Evidence[]
+  @@index([findingId])
+  @@index([status])
+  @@index([targetDate])
+  @@index([assignedToId])
+}
+
+model Evidence {
+  id                 Int              @id @default(autoincrement())
+  reportId           Int
+  findingId          Int?
+  correctiveActionId Int?
+  category           EvidenceCategory @default(OTHER)
+  fileName           String           @db.VarChar(255)
+  filePath           String           @db.VarChar(255)
+  mimeType           String           @db.VarChar(60)
+  fileSize           Int
+  uploadedById       Int?
+  createdAt          DateTime         @default(now())
+  report             SafetyReport     @relation(fields: [reportId], references: [id], onDelete: Cascade)
+  finding            Finding?         @relation(fields: [findingId], references: [id], onDelete: SetNull)
+  correctiveAction   CorrectiveAction? @relation(fields: [correctiveActionId], references: [id], onDelete: SetNull)
+  uploadedBy         User?            @relation(fields: [uploadedById], references: [id], onDelete: SetNull)
+  @@index([reportId])
+  @@index([findingId])
+  @@index([correctiveActionId])
+}
+
+// Riwayat status laporan dan corrective action (entityType: REPORT | CORRECTIVE_ACTION)
+model StatusHistory {
+  id         Int      @id @default(autoincrement())
+  entityType String   @db.VarChar(30)
+  entityId   Int
+  status     String   @db.VarChar(30)
+  note       String?  @db.Text
+  byId       Int?
+  createdAt  DateTime @default(now())
+  by         User?    @relation(fields: [byId], references: [id], onDelete: SetNull)
+  @@index([entityType, entityId])
+}
+
+model Notification {
+  id            Int              @id @default(autoincrement())
+  userId        Int
+  title         String           @db.VarChar(200)
+  message       String           @db.Text
+  type          NotificationType @default(SYSTEM)
+  isRead        Boolean          @default(false)
+  referenceType String?          @db.VarChar(40)
+  referenceId   Int?
+  createdAt     DateTime         @default(now())
+  user          User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  @@index([userId, isRead])
+  @@index([type, referenceType, referenceId])
+}
+
+model AuditLog {
+  id          Int      @id @default(autoincrement())
+  userId      Int?
+  action      String   @db.VarChar(60)
+  entity      String   @db.VarChar(60)
+  entityId    Int?
+  description String   @db.Text
+  ipAddress   String?  @db.VarChar(64)
+  createdAt   DateTime @default(now())
+  user        User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+  @@index([userId])
+  @@index([action])
+  @@index([entity])
+  @@index([createdAt])
+}

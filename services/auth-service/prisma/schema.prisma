@@ -1,0 +1,39 @@
+// auth_db: dimiliki HANYA oleh auth-service.
+// depotId/depotName adalah salinan (snapshot) dari master-data-service, bukan foreign key lintas database.
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  PETUGAS
+  ADMIN
+  SUPERADMIN
+}
+
+enum RecordStatus {
+  ACTIVE
+  INACTIVE
+}
+
+model User {
+  id           Int          @id @default(autoincrement())
+  name         String       @db.VarChar(120)
+  username     String       @unique @db.VarChar(60)
+  email        String       @unique @db.VarChar(160)
+  passwordHash String       @db.VarChar(100)
+  role         Role         @default(PETUGAS)
+  depotId      Int?
+  depotName    String?      @db.VarChar(150)
+  status       RecordStatus @default(ACTIVE)
+  deletedAt    DateTime?
+  createdAt    DateTime     @default(now())
+  updatedAt    DateTime     @updatedAt
+
+  @@index([depotId])
+  @@index([role])
+}

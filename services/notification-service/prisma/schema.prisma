@@ -1,0 +1,34 @@
+// notification_db: dimiliki HANYA oleh notification-service. userId = id user di auth-service (tanpa foreign key).
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+enum NotificationType {
+  REPORT_SUBMITTED
+  REPORT_VERIFIED
+  FINDING_CREATED
+  CORRECTIVE_ACTION_ASSIGNED
+  CORRECTIVE_ACTION_OVERDUE
+  REPORT_RESOLVED
+  SYSTEM
+}
+
+model Notification {
+  id            Int              @id @default(autoincrement())
+  userId        Int
+  title         String           @db.VarChar(200)
+  message       String           @db.Text
+  type          NotificationType @default(SYSTEM)
+  isRead        Boolean          @default(false)
+  referenceType String?          @db.VarChar(40)
+  referenceId   Int?
+  createdAt     DateTime         @default(now())
+
+  @@index([userId, isRead])
+  @@index([type, referenceType, referenceId])
+}

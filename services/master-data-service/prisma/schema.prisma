@@ -1,0 +1,72 @@
+// master_data_db: dimiliki HANYA oleh master-data-service (Depot, Product, Tank, Personnel).
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+enum RecordStatus {
+  ACTIVE
+  INACTIVE
+}
+
+model Depot {
+  id          Int          @id @default(autoincrement())
+  code        String       @unique @db.VarChar(30)
+  name        String       @db.VarChar(150)
+  location    String?      @db.VarChar(255)
+  description String?      @db.Text
+  status      RecordStatus @default(ACTIVE)
+  deletedAt   DateTime?
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+  personnel   Personnel[]
+  tanks       Tank[]
+}
+
+model Product {
+  id          Int          @id @default(autoincrement())
+  code        String       @unique @db.VarChar(30)
+  name        String       @db.VarChar(100)
+  description String?      @db.Text
+  status      RecordStatus @default(ACTIVE)
+  deletedAt   DateTime?
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+  tanks       Tank[]
+}
+
+model Tank {
+  id         Int          @id @default(autoincrement())
+  tankNumber String       @db.VarChar(40)
+  depotId    Int
+  productId  Int?
+  capacity   Decimal?     @db.Decimal(14, 2)
+  status     RecordStatus @default(ACTIVE)
+  deletedAt  DateTime?
+  createdAt  DateTime     @default(now())
+  updatedAt  DateTime     @updatedAt
+  depot      Depot        @relation(fields: [depotId], references: [id])
+  product    Product?     @relation(fields: [productId], references: [id])
+
+  @@unique([depotId, tankNumber])
+  @@index([productId])
+}
+
+model Personnel {
+  id             Int          @id @default(autoincrement())
+  name           String       @db.VarChar(120)
+  employeeNumber String?      @unique @db.VarChar(40)
+  position       String?      @db.VarChar(100)
+  depotId        Int
+  status         RecordStatus @default(ACTIVE)
+  deletedAt      DateTime?
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+  depot          Depot        @relation(fields: [depotId], references: [id])
+
+  @@index([depotId])
+}

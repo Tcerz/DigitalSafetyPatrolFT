@@ -1,0 +1,125 @@
+# Digital Safety Patrol - arsitektur microservices
+#
+#   Browser -> frontend (Nginx) -> api-gateway -> auth / master-data / report / notification / audit -> MySQL
+#
+# Jaringan:  "edge"     = frontend + gateway (sisi publik)
+#            "internal" = semua service + MySQL (TIDAK dipublish ke host)
+name: digital-safety-patrol
+
+x-common-env: &common-env
+  NODE_ENV: production
+  TZ: Asia/Jakarta
+  JWT_SECRET: ${JWT_SECRET:?Isi JWT_SECRET di file .env (minimal 16 karakter)}
+  INTERNAL_KEY: ${INTERNAL_KEY:?Isi INTERNAL_KEY di file .env (minimal 16 karakter)}
+  JWT_EXPIRES_IN: ${JWT_EXPIRES_IN:-8h}
+  SEED_PASSWORD: ${SEED_PASSWORD:-Password123!}
+
+services:
+  mysql:
+    image: mysql:8.0
+    restart: unless-stopped
+    command: --character-set-server=utf8mb4 --collation-server=utf8mb4_unicode_ci
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:?Isi MYSQL_ROOT_PASSWORD di file .env}
+      SERVICE_DB_PASSWORD: ${DB_PASSWORD:?Isi DB_PASSWORD di file .env}
+      TZ: Asia/Jakarta
+    volumes:
+      - mysql_data_ms:/var/lib/mysql
+      - ./docker/mysql/init:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD-SHELL", "mysqladmin ping -h 127.0.0.1 -uroot -p$$MYSQL_ROOT_PASSWORD --silent"]
+      interval: 10s
+      timeout: 5s
+      retries: 30
+    networks: [internal]
+
+  auth-service:
+    build: ./services/auth-service
+    restart: unless-stopped
+    depends_on: { mysql: { condition: service_healthy } }
+    environment:
+      <<: *common-env
+      SERVICE_NAME: auth-service
+      PORT: 3001
+      DATABASE_URL: mysql://auth_user:${DB_PASSWORD}@mysql:3306/auth_db
+      SEED_ON_START: ${SEED_ON_START:-true}
+    networks: [internal]
+
+  master-data-service:
+    build: ./services/master-data-service
+    restart: unless-stopped
+    depends_on: { mysql: { condition: service_healthy } }
+    environment:
+      <<: *common-env
+      SERVICE_NAME: master-data-service
+      PORT: 3006
+      DATABASE_URL: mysql://master_data_user:${DB_PASSWORD}@mysql:3306/master_data_db
+      SEED_ON_START: ${SEED_ON_START:-true}
+    networks: [internal]
+
+  report-service:            # tanpa container_name & tanpa port host -> bisa di-scale: --scale report-service=3
+    build: ./services/report-service
+    restart: unless-stopped
+    depends_on: { mysql: { condition: service_healthy } }
+    environment:
+      <<: *common-env
+      SERVICE_NAME: report-service
+      PORT: 3003
+      DATABASE_URL: mysql://report_user:${DB_PASSWORD}@mysql:3306/report_db
+      UPLOAD_DIR: uploads
+      MAX_FILE_SIZE_MB: ${MAX_FILE_SIZE_MB:-5}
+      MAX_PHOTOS_PER_REPORT: ${MAX_PHOTOS_PER_REPORT:-10}
+    volumes:
+      - uploads_data:/app/uploads     # volume bersama untuk semua instance report-service
+    networks: [internal]
+
+  notification-service:
+    build: ./services/notification-service
+    restart: unless-stopped
+    depends_on: { mysql: { condition: service_healthy } }
+    environment:
+      <<: *common-env
+      SERVICE_NAME: notification-service
+      PORT: 3008
+      DATABASE_URL: mysql://notification_user:${DB_PASSWORD}@mysql:3306/notification_db
+    networks: [internal]
+
+  audit-service:
+    build: ./services/audit-service
+    restart: unless-stopped
+    depends_on: { mysql: { condition: service_healthy } }
+    environment:
+      <<: *common-env
+      SERVICE_NAME: audit-service
+      PORT: 3010
+      DATABASE_URL: mysql://audit_user:${DB_PASSWORD}@mysql:3306/audit_db
+    networks: [internal]
+
+  api-gateway:
+    build: ./gateway
+    restart: unless-stopped
+    depends_on: [auth-service, master-data-service, report-service, notification-service, audit-service]
+    environment:
+      <<: *common-env
+      SERVICE_NAME: api-gateway
+      PORT: 8080
+      FRONTEND_URL: ${FRONTEND_URL:-http://localhost:8080,http://localhost:5173}
+    ports:
+      - "${GATEWAY_PORT:-8000}:8080"   # opsional: untuk uji API langsung (Postman/curl)
+    networks: [edge, internal]
+
+  frontend:
+    build: ./frontend
+    restart: unless-stopped
+    depends_on: [api-gateway]
+    ports:
+      - "${FRONTEND_PORT:-8080}:80"
+    networks: [edge]
+
+volumes:
+  mysql_data_ms:
+  uploads_data:
+
+networks:
+  edge:
+  internal:

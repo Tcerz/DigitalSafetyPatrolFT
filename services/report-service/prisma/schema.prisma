@@ -1,0 +1,217 @@
+// report_db: dimiliki HANYA oleh report-service.
+// depot/personel/produk/tangki/user berasal dari service lain, jadi di sini disimpan sebagai ID + salinan nama
+// (snapshot) -- BUKAN foreign key ke database lain.
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+enum ReportStatus {
+  DRAFT
+  SUBMITTED
+  VERIFIED
+  IN_PROGRESS
+  RESOLVED
+  CLOSED
+}
+
+enum Priority {
+  LOW
+  MEDIUM
+  HIGH
+  CRITICAL
+}
+
+enum ActivityType {
+  LOADING
+  DISCHARGE
+  PENYALURAN
+  STORAGE
+}
+
+enum Condition {
+  SAFE
+  UNSAFE
+}
+
+enum TankStatus {
+  LOADING
+  DISCHARGE
+  PENYALURAN
+  AKTIF_IDLE
+  OFF
+}
+
+enum FindingStatus {
+  OPEN
+  IN_PROGRESS
+  RESOLVED
+  CLOSED
+}
+
+enum CorrectiveStatus {
+  OPEN
+  IN_PROGRESS
+  COMPLETED
+  OVERDUE
+  CLOSED
+}
+
+enum EvidenceCategory {
+  LOADING
+  DISCHARGE
+  PENYALURAN
+  STORAGE
+  FINDING
+  CORRECTIVE_ACTION
+  OTHER
+}
+
+model SafetyReport {
+  id            Int          @id @default(autoincrement())
+  reportNumber  String       @unique @db.VarChar(30)
+  depotId       Int
+  depotName     String       @db.VarChar(150)
+  createdById   Int
+  createdByName String       @db.VarChar(120)
+  picPatrolId   Int?
+  picPatrolName String?      @db.VarChar(120)
+  patrolDate    DateTime     @db.Date
+  patrolTime    String       @db.VarChar(5)
+  status        ReportStatus @default(DRAFT)
+  priority      Priority     @default(LOW)
+  submittedAt   DateTime?
+  verifiedAt    DateTime?
+  closedAt      DateTime?
+  deletedAt     DateTime?
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
+  activities    PatrolActivity[]
+  findings      Finding[]
+  evidences     Evidence[]
+
+  @@index([depotId])
+  @@index([createdById])
+  @@index([status])
+  @@index([priority])
+  @@index([patrolDate])
+  @@index([createdAt])
+}
+
+model PatrolActivity {
+  id            Int          @id @default(autoincrement())
+  reportId      Int
+  activityType  ActivityType
+  condition     Condition    @default(SAFE)
+  notes         String?      @db.Text
+  personnelId   Int?
+  personnelName String?      @db.VarChar(120)
+  productId     Int?
+  productName   String?      @db.VarChar(100)
+  jetty1        String?      @db.VarChar(50)
+  jetty2        String?      @db.VarChar(50)
+  startTime     String?      @db.VarChar(5)
+  endTime       String?      @db.VarChar(5)
+  tankStatus    TankStatus?
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
+  report        SafetyReport @relation(fields: [reportId], references: [id], onDelete: Cascade)
+  tanks         ActivityTank[]
+  findings      Finding[]
+
+  @@unique([reportId, activityType])
+  @@index([personnelId])
+  @@index([productId])
+}
+
+model ActivityTank {
+  activityId Int
+  tankId     Int
+  tankNumber String         @db.VarChar(40)
+  activity   PatrolActivity @relation(fields: [activityId], references: [id], onDelete: Cascade)
+
+  @@id([activityId, tankId])
+  @@index([tankId])
+}
+
+model Finding {
+  id                Int           @id @default(autoincrement())
+  reportId          Int
+  activityId        Int?
+  title             String        @db.VarChar(200)
+  description       String        @db.Text
+  location          String?       @db.VarChar(200)
+  priority          Priority      @default(MEDIUM)
+  status            FindingStatus @default(OPEN)
+  recommendation    String?       @db.Text
+  createdAt         DateTime      @default(now())
+  updatedAt         DateTime      @updatedAt
+  report            SafetyReport  @relation(fields: [reportId], references: [id], onDelete: Cascade)
+  activity          PatrolActivity? @relation(fields: [activityId], references: [id], onDelete: SetNull)
+  evidences         Evidence[]
+  correctiveActions CorrectiveAction[]
+
+  @@index([reportId])
+  @@index([status])
+  @@index([priority])
+}
+
+model CorrectiveAction {
+  id             Int              @id @default(autoincrement())
+  findingId      Int
+  description    String           @db.Text
+  assignedToId   Int
+  assignedToName String           @db.VarChar(120)
+  targetDate     DateTime         @db.Date
+  status         CorrectiveStatus @default(OPEN)
+  notes          String?          @db.Text
+  completedAt    DateTime?
+  createdAt      DateTime         @default(now())
+  updatedAt      DateTime         @updatedAt
+  finding        Finding          @relation(fields: [findingId], references: [id], onDelete: Cascade)
+  evidences      Evidence[]
+
+  @@index([findingId])
+  @@index([status])
+  @@index([targetDate])
+  @@index([assignedToId])
+}
+
+model Evidence {
+  id                 Int              @id @default(autoincrement())
+  reportId           Int
+  findingId          Int?
+  correctiveActionId Int?
+  category           EvidenceCategory @default(OTHER)
+  fileName           String           @db.VarChar(255)
+  filePath           String           @db.VarChar(255)
+  mimeType           String           @db.VarChar(60)
+  fileSize           Int
+  uploadedById       Int?
+  createdAt          DateTime         @default(now())
+  report             SafetyReport     @relation(fields: [reportId], references: [id], onDelete: Cascade)
+  finding            Finding?         @relation(fields: [findingId], references: [id], onDelete: SetNull)
+  correctiveAction   CorrectiveAction? @relation(fields: [correctiveActionId], references: [id], onDelete: SetNull)
+
+  @@index([reportId])
+  @@index([findingId])
+  @@index([correctiveActionId])
+}
+
+// Riwayat status laporan dan corrective action (entityType: REPORT | CORRECTIVE_ACTION)
+model StatusHistory {
+  id         Int      @id @default(autoincrement())
+  entityType String   @db.VarChar(30)
+  entityId   Int
+  status     String   @db.VarChar(30)
+  note       String?  @db.Text
+  byId       Int?
+  byName     String?  @db.VarChar(120)
+  createdAt  DateTime @default(now())
+
+  @@index([entityType, entityId])
+}

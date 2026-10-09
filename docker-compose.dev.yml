@@ -1,0 +1,6 @@
+# Tambahan KHUSUS development (tidak dipakai otomatis). Membuka MySQL ke host untuk dicek dengan DBeaver/MySQL Workbench:
+#   docker compose -f docker-compose.yml -f docker-compose.dev.yml up -d
+services:
+  mysql:
+    ports:
+      - "127.0.0.1:3307:3306"
