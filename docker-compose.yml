@@ -35,6 +35,7 @@ services:
 
   auth-service:
     build: ./services/auth-service
+    image: nurihsanfebrianto/digital-safety-patrol-auth-service:latest
     restart: unless-stopped
     depends_on: { mysql: { condition: service_healthy } }
     environment:
@@ -47,6 +48,7 @@ services:
 
   master-data-service:
     build: ./services/master-data-service
+    image: nurihsanfebrianto/digital-safety-patrol-master-data-service:latest
     restart: unless-stopped
     depends_on: { mysql: { condition: service_healthy } }
     environment:
@@ -59,6 +61,7 @@ services:
 
   report-service:            # tanpa container_name & tanpa port host -> bisa di-scale: --scale report-service=3
     build: ./services/report-service
+    image: nurihsanfebrianto/digital-safety-patrol-report-service:latest
     restart: unless-stopped
     depends_on: { mysql: { condition: service_healthy } }
     environment:
@@ -75,6 +78,7 @@ services:
 
   notification-service:
     build: ./services/notification-service
+    image: nurihsanfebrianto/digital-safety-patrol-notification-service:latest
     restart: unless-stopped
     depends_on: { mysql: { condition: service_healthy } }
     environment:
@@ -86,6 +90,7 @@ services:
 
   audit-service:
     build: ./services/audit-service
+    image: nurihsanfebrianto/digital-safety-patrol-audit-service:latest
     restart: unless-stopped
     depends_on: { mysql: { condition: service_healthy } }
     environment:
@@ -97,6 +102,7 @@ services:
 
   api-gateway:
     build: ./gateway
+    image: nurihsanfebrianto/digital-safety-patrol-api-gateway:latest
     restart: unless-stopped
     depends_on: [auth-service, master-data-service, report-service, notification-service, audit-service]
     environment:
@@ -110,6 +116,7 @@ services:
 
   frontend:
     build: ./frontend
+    image: nurihsanfebrianto/dsp-frontend:1.0
     restart: unless-stopped
     depends_on: [api-gateway]
     ports:
