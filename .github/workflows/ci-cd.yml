@@ -1,0 +1,140 @@
+# CI/CD Digital Safety Patrol
+#   CI : test gateway, build frontend, validasi docker-compose  (setiap push dan pull request)
+#   CD : build 7 image Docker lalu push ke Docker Hub          (hanya push ke branch main)
+# Secret yang wajib dibuat di GitHub (Settings > Secrets and variables > Actions):
+#   DOCKERHUB_USERNAME  = username Docker Hub
+#   DOCKERHUB_TOKEN     = access token Docker Hub (izin Read & Write)
+name: CI-CD Digital Safety Patrol
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  ci:
+    name: CI - Test dan Build
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.meta.outputs.version }}
+      short_sha: ${{ steps.meta.outputs.short_sha }}
+      built_at: ${{ steps.meta.outputs.built_at }}
+    steps:
+      - name: Ambil kode dari repository
+        uses: actions/checkout@v4
+
+      - name: Siapkan Node.js 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Hitung informasi versi
+        id: meta
+        run: |
+          echo "version=$(tr -d '[:space:]' < VERSION)" >> "$GITHUB_OUTPUT"
+          echo "short_sha=${GITHUB_SHA::7}" >> "$GITHUB_OUTPUT"
+          echo "built_at=$(date -u +%Y-%m-%dT%H:%M:%SZ)" >> "$GITHUB_OUTPUT"
+
+      - name: Validasi docker-compose.yml
+        env:
+          JWT_SECRET: ci-dummy-secret-1234567890
+          INTERNAL_KEY: ci-dummy-internal-1234567890
+          MYSQL_ROOT_PASSWORD: ci-dummy-root
+          DB_PASSWORD: ci-dummy-db
+          DOCKERHUB_USERNAME: ci-dummy
+        run: |
+          docker compose -f docker-compose.yml config -q
+          docker compose -f docker-compose.yml -f docker-compose.hub.yml config -q
+
+      - name: Install dan tes gateway
+        working-directory: gateway
+        run: |
+          npm install --no-audit --no-fund
+          npm test
+
+      - name: Install dan build frontend
+        working-directory: frontend
+        run: |
+          npm install --no-audit --no-fund
+          npm run build
+
+  build-push:
+    name: CD - Push image ${{ matrix.name }}
+    needs: ci
+    if: github.event_name != 'pull_request'
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { name: frontend, context: ./frontend }
+          - { name: gateway, context: ./gateway }
+          - { name: auth-service, context: ./services/auth-service }
+          - { name: master-data-service, context: ./services/master-data-service }
+          - { name: report-service, context: ./services/report-service }
+          - { name: notification-service, context: ./services/notification-service }
+          - { name: audit-service, context: ./services/audit-service }
+    steps:
+      - name: Ambil kode dari repository
+        uses: actions/checkout@v4
+
+      - name: Siapkan Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Login ke Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Build dan push image
+        uses: docker/build-push-action@v6
+        with:
+          context: ${{ matrix.context }}
+          push: true
+          tags: |
+            ${{ secrets.DOCKERHUB_USERNAME }}/dsp-${{ matrix.name }}:latest
+            ${{ secrets.DOCKERHUB_USERNAME }}/dsp-${{ matrix.name }}:${{ needs.ci.outputs.version }}
+            ${{ secrets.DOCKERHUB_USERNAME }}/dsp-${{ matrix.name }}:sha-${{ needs.ci.outputs.short_sha }}
+          build-args: |
+            APP_VERSION=${{ needs.ci.outputs.version }}
+            GIT_COMMIT=${{ needs.ci.outputs.short_sha }}
+            BUILD_TIME=${{ needs.ci.outputs.built_at }}
+          cache-from: type=gha,scope=${{ matrix.name }}
+          cache-to: type=gha,mode=max,scope=${{ matrix.name }}
+
+  summary:
+    name: Ringkasan rilis
+    needs: [ci, build-push]
+    if: github.event_name != 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Tulis ringkasan
+        run: |
+          {
+            echo "### Rilis berhasil dikirim ke Docker Hub"
+            echo ""
+            echo "- Versi: **${{ needs.ci.outputs.version }}**"
+            echo "- Commit: \`${{ needs.ci.outputs.short_sha }}\`"
+            echo "- Waktu build: ${{ needs.ci.outputs.built_at }}"
+            echo "- Image: \`${{ secrets.DOCKERHUB_USERNAME }}/dsp-*\` (tag: latest, versi, sha)"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+  # OPSIONAL - deploy otomatis ke Docker di komputer sendiri memakai self-hosted runner.
+  # Aktif hanya jika variabel repository DEPLOY_TO_LOCAL = true (dan DEPLOY_PATH = folder proyek).
+  # Jika tidak diaktifkan, job ini dilewati dan deploy dilakukan manual dengan 'docker compose pull'.
+  deploy:
+    name: CD - Deploy ke Docker lokal
+    needs: build-push
+    if: ${{ github.event_name != 'pull_request' && vars.DEPLOY_TO_LOCAL == 'true' }}
+    runs-on: self-hosted
+    steps:
+      - name: Tarik image terbaru lalu jalankan ulang container
+        working-directory: ${{ vars.DEPLOY_PATH }}
+        shell: bash
+        run: |
+          docker compose -f docker-compose.yml -f docker-compose.hub.yml pull
+          docker compose -f docker-compose.yml -f docker-compose.hub.yml up -d
+          docker compose ps

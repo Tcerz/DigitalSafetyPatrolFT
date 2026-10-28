@@ -31,6 +31,7 @@ const router = createRouter({
         { path: 'reports/:id', component: v('ReportDetailView'), meta: { roles: ALL, crumb: 'Reports / Detail' } },
         { path: 'reports/:id/edit', component: v('ReportFormView'), meta: { roles: ['PETUGAS', 'SUPERADMIN'], crumb: 'Reports / Edit' } },
         { path: 'statistics', component: v('StatisticsView'), meta: { roles: ADM, crumb: 'Statistics' } },
+        { path: 'system-status', component: v('SystemStatusView'), meta: { roles: ADM, crumb: 'Status Sistem' } },
         { path: 'corrective-actions', component: v('CorrectiveListView'), meta: { roles: ADM, crumb: 'Corrective Actions' } },
         { path: 'corrective-actions/:id', component: v('CorrectiveDetailView'), meta: { roles: ADM, crumb: 'Corrective Actions / Detail' } },
         ...crudRoutes,

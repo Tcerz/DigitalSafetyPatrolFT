@@ -1,0 +1,29 @@
+# Override: jalankan image HASIL PIPELINE dari Docker Hub (bukan build lokal).
+#   docker compose -f docker-compose.yml -f docker-compose.hub.yml pull
+#   docker compose -f docker-compose.yml -f docker-compose.hub.yml up -d
+# Butuh DOCKERHUB_USERNAME di file .env. IMAGE_TAG opsional: latest (default), versi (mis. 1.1.0), atau sha-xxxxxxx.
+x-hub: &hub
+  pull_policy: always
+
+services:
+  frontend:
+    <<: *hub
+    image: ${DOCKERHUB_USERNAME:?isi DOCKERHUB_USERNAME di file .env}/dsp-frontend:${IMAGE_TAG:-latest}
+  api-gateway:
+    <<: *hub
+    image: ${DOCKERHUB_USERNAME:?isi DOCKERHUB_USERNAME di file .env}/dsp-gateway:${IMAGE_TAG:-latest}
+  auth-service:
+    <<: *hub
+    image: ${DOCKERHUB_USERNAME:?isi DOCKERHUB_USERNAME di file .env}/dsp-auth-service:${IMAGE_TAG:-latest}
+  master-data-service:
+    <<: *hub
+    image: ${DOCKERHUB_USERNAME:?isi DOCKERHUB_USERNAME di file .env}/dsp-master-data-service:${IMAGE_TAG:-latest}
+  report-service:
+    <<: *hub
+    image: ${DOCKERHUB_USERNAME:?isi DOCKERHUB_USERNAME di file .env}/dsp-report-service:${IMAGE_TAG:-latest}
+  notification-service:
+    <<: *hub
+    image: ${DOCKERHUB_USERNAME:?isi DOCKERHUB_USERNAME di file .env}/dsp-notification-service:${IMAGE_TAG:-latest}
+  audit-service:
+    <<: *hub
+    image: ${DOCKERHUB_USERNAME:?isi DOCKERHUB_USERNAME di file .env}/dsp-audit-service:${IMAGE_TAG:-latest}

@@ -5,6 +5,11 @@ RUN npm install
 COPY . .
 ARG VITE_API_BASE_URL=/api
 ENV VITE_API_BASE_URL=$VITE_API_BASE_URL
+# Informasi versi (diisi oleh pipeline CI/CD; default untuk build lokal)
+ARG APP_VERSION=dev
+ARG GIT_COMMIT=local
+ARG BUILD_TIME=unknown
+ENV VITE_APP_VERSION=$APP_VERSION VITE_GIT_COMMIT=$GIT_COMMIT VITE_BUILD_TIME=$BUILD_TIME
 RUN npm run build
 
 FROM nginx:alpine

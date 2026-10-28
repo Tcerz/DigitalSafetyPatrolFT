@@ -3,6 +3,11 @@ WORKDIR /app
 COPY package*.json ./
 RUN npm install --omit=dev
 COPY src ./src
+# Informasi versi (diisi oleh pipeline CI/CD; default untuk build lokal)
+ARG APP_VERSION=dev
+ARG GIT_COMMIT=local
+ARG BUILD_TIME=unknown
+ENV APP_VERSION=$APP_VERSION GIT_COMMIT=$GIT_COMMIT BUILD_TIME=$BUILD_TIME
 ENV NODE_ENV=production SERVICE_NAME=api-gateway PORT=8080
 USER node
 EXPOSE 8080

@@ -31,9 +31,9 @@ LANGKAH
    Cek API gateway & semua service:  http://localhost:8000/api/health
 
 6. (Opsional) Tes otomatis alur lengkap (butuh Node.js 20 di komputer Anda):
-     node --test tests/
+     node --test tests/integration.test.mjs
    Atau dengan alamat/password lain:
-     BASE_URL=http://localhost:8000 SEED_PASSWORD=Password123! node --test tests/
+     BASE_URL=http://localhost:8000 SEED_PASSWORD=Password123! node --test tests/integration.test.mjs
 
 PERINTAH BERGUNA
 ----------------

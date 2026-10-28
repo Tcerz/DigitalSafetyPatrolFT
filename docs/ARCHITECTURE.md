@@ -82,7 +82,7 @@ agar terlihat container mana yang melayani. Foto disimpan di volume bersama `upl
 2. Pisahkan **corrective-action-service**, lalu **file-service** (foto), lalu **statistics-service**.
 3. Tambahkan message broker (RabbitMQ/Redis) untuk event seperti REPORT_SUBMITTED agar audit/notifikasi tidak hilang saat service mati.
 4. Tambahkan refresh token dan pemisahan user-service dari auth-service.
-Setiap langkah: buat service + database + Dockerfile, daftarkan di `docker-compose.yml` dan route di `gateway/src/app.js`, jalankan `node --test tests/`.
+Setiap langkah: buat service + database + Dockerfile, daftarkan di `docker-compose.yml` dan route di `gateway/src/app.js`, jalankan `node --test tests/integration.test.mjs`.
 
 ## 10. Struktur satu service
 ```

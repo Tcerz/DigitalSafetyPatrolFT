@@ -1,6 +1,6 @@
 // Tes integrasi alur PRD, dijalankan LEWAT API GATEWAY (semua microservice ikut teruji).
 // Jalankan setelah `docker compose up -d` selesai (semua service healthy):
-//   BASE_URL=http://localhost:8000 SEED_PASSWORD=Password123! node --test tests/
+//   BASE_URL=http://localhost:8000 SEED_PASSWORD=Password123! node --test tests/integration.test.mjs
 import test from 'node:test'
 import assert from 'node:assert/strict'
 

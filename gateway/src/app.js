@@ -30,6 +30,11 @@ const fail = (res, status, message) => res.status(status).json({ success: false,
 
 // --- Health: gateway + status tiap service (tetap 200 walau ada service yang mati)
 app.get('/health', (req, res) => res.json({ service: 'api-gateway', status: 'healthy' }))
+// Versi aplikasi: nilainya diisi pipeline CI/CD lewat build-arg (APP_VERSION, GIT_COMMIT, BUILD_TIME)
+app.get('/api/version', (req, res) => res.json({
+  success: true, message: 'OK',
+  data: { service: 'api-gateway', version: process.env.APP_VERSION || 'dev', commit: process.env.GIT_COMMIT || 'local', builtAt: process.env.BUILD_TIME || null },
+}))
 app.get('/api/health', async (req, res) => {
   const out = {}
   await Promise.all(Object.entries(SERVICES).map(async ([name, u]) => {

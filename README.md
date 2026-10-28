@@ -33,4 +33,4 @@ Mulai dari **`INSTALASI.txt`**. Untuk memahami arsitekturnya, baca **`docs/ARCHI
 ## Yang sudah dan belum
 - **Tahap 1 (ini):** 6 service (gateway + 5), database per service, komunikasi antar-service lewat REST, load balancing di gateway, dan isolasi kegagalan.
 - **Latihan berikutnya:** memecah `report-service` lagi menjadi finding, corrective-action, file, dan statistics (urutan di `docs/ARCHITECTURE.md`).
-- **Status pengujian:** gateway, auth-service, dan report-service diuji dengan database tiruan (routing, token, role, validasi, isolasi 503). **Belum dijalankan dengan Docker dan MySQL sungguhan**, karena sandbox pengembangan tidak bisa menjalankannya. Jalankan `docker compose up --build` lalu `node --test tests/` untuk membuktikan seluruh alur; kirim log bila ada error.
+- **Status pengujian:** gateway, auth-service, dan report-service diuji dengan database tiruan (routing, token, role, validasi, isolasi 503). **Belum dijalankan dengan Docker dan MySQL sungguhan**, karena sandbox pengembangan tidak bisa menjalankannya. Jalankan `docker compose up --build` lalu `node --test tests/integration.test.mjs` untuk membuktikan seluruh alur; kirim log bila ada error.
